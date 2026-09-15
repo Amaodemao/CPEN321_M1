@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import { env } from './config/env';
+import { isIP } from 'node:net';
 
 export function createApp(): Express {
   const app = express();
@@ -67,6 +68,40 @@ export function createApp(): Express {
     });
   });
 
+app.get('/server/ip', async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+
+  try {
+    const response = await fetch(
+      'http://metadata.google.internal/computeMetadata/v1/' +
+        'instance/network-interfaces/0/access-configs/0/external-ip',
+      {
+        headers: {
+          'Metadata-Flavor': 'Google',
+        },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Metadata request failed: ${response.status}`);
+    }
+
+    const ip = (await response.text()).trim();
+
+    if (isIP(ip) === 0) {
+      throw new Error('Metadata returned an invalid IP address');
+    }
+
+    res.json({ ip });
+  } catch (error) {
+    console.error('Failed to get server public IP:', error);
+    res.status(503).json({
+      error: 'Server public IP is unavailable',
+    });
+  }
+});
+  
   app.use((_req, res) => {
     res.status(404).json({ error: 'Not Found' });
   });
