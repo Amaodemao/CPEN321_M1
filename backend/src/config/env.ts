@@ -12,4 +12,5 @@ if (Number.isNaN(port) || port < 1 || port > 65535) {
 
 export const env = {
   port,
+  googleClientId: process.env.GOOGLE_CLIENT_ID?.trim() ?? '',
 } as const;
